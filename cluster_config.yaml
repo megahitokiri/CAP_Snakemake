@@ -52,4 +52,14 @@ MAKER3:
     mem: 120G
     output: MAKER3-%j.out #stdoutput. 
     error: MAKER3-%j.err #stdoutput error
+
+POST_MAKER:
+    time: 0-0:30:00 # time limit for each job
+    output: POST_MAKER-%j.out #stdoutput. 
+    error: POST_MAKER-%j.err #stdoutput error
+
+ORF_analysis:
+    time: 0-12:00:00 # time limit for each job
+    output: ORF_analysis-%j.out #stdoutput. 
+    error: ORF_analysis-%j.err #stdoutput error
     

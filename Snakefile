@@ -1,11 +1,13 @@
 #--------------------------------------------------------------------------------
 # MAIN CONFIGURATION PARAMETERS (INTERNAL CONFIG FILE)
+#Cancel all jobs if fail: squeue -u $USER -h | awk '{print $1}' | xargs scancel
 #--------------------------------------------------------------------------------
 
 CHRS = '1 2 3 4 5 6 7 8 9 10 11'.split()
 PROJECT = "PK_hap2"
 REFERENCE = "PK_hap2.09082021.fasta"
 NANOPORE_FASTQ = "FAP02733_Porechop_No_Trim_Final.fastq.gz"
+AED_FILTER = '0.6 0.7 0.8'.split()
 
 #--------------------------------------------------------------------------------
 # TargetRule FINAL_GFF3
@@ -22,7 +24,9 @@ rule FINAL_GFF3:
 #		"Minimap_Aligned/minimap2.sorted.MAPQ20.dedup.bam.bai",
 		expand("Sorted_Chromosomes/Nanopore.chr{Chrs}.fasta",Chrs = CHRS),
 #		"Sorted_Chromosomes/Minor_Scaffolds.fasta",
-		expand("Maker_Files/chr{Chrs}/scaffold_{Chrs}_master_datastore_index.log",Chrs = CHRS),
+		expand("Maker_Files/Chr{Chrs}/scaffold_{Chrs}.maker.output/scaffold_{Chrs}_master_datastore_index.log",Chrs = CHRS),
+		expand("Maker_Files/Chr{Chrs}/MAKER_Filtered.scaffold_{Chrs}.all.AED_{AED_filter}.gff3",Chrs = CHRS,AED_filter=AED_FILTER),
+		expand("Post_Maker_Files/MAKER_ORF_Filtered_{Project}.scaffold_{Chrs}.AED_{AED_filter}.gff3",Project=PROJECT,Chrs = CHRS,AED_filter=AED_FILTER),
 
 #--------------------------------------------------------------------------------
 # Init: Initializing files and folder
@@ -47,6 +51,7 @@ rule Init:
 		mkdir Ref
 		unzip -o Maker_Files.zip
 		mkdir Post_Maker_Files
+		mkdir FINAL_ANNOTATION
 
 		cp  {input.reference} {output}
 
@@ -169,7 +174,7 @@ rule MINIMAP2:
 
 		echo BAM indexing.....
 		samtools index  Minimap_Aligned/minimap2.sorted.bam
-		
+		​
 		echo Applying MAPQ20 quality filter
 		samtools view -bq 20 Minimap_Aligned/minimap2.sorted.bam > Minimap_Aligned/minimap2.sorted.MAPQ20.bam
 
@@ -242,7 +247,7 @@ rule Minor_Scaffolds_correction:
 		"""				
 
 #--------------------------------------------------------------------------------
-# MAKER3: Split the raw Nanopore data into chromosomes for analysis
+# MAKER3: Perform Maker Analysis, using 3 iterations.
 #--------------------------------------------------------------------------------
 
 rule MAKER3:
@@ -252,7 +257,7 @@ rule MAKER3:
 		Protein_File="Maker_Files/csa.trans.Protein.10072011.fasta",
 		Repeats_File="Maker_Files/PK_Repeat_contigs_RE_filtered_min500bp.fa",
 	output:
-		"Maker_Files/chr{Chrs}/scaffold_{Chrs}_master_datastore_index.log",
+		"Maker_Files/Chr{Chrs}/scaffold_{Chrs}.maker.output/scaffold_{Chrs}_master_datastore_index.log",
 	shell:
 		"""
 		BASEDIR=$PWD 
@@ -280,4 +285,66 @@ rule MAKER3:
 		ml unload postgresql/13.2
 		ml openmpi/4.0.3 
 		"""
+#--------------------------------------------------------------------------------
+# POST_MAKER: Perform Maker Analysis, using 3 differente AED filter values
+#--------------------------------------------------------------------------------
+
+rule POST_MAKER:
+	input:
+		Maker_File=rules.MAKER3.output,
+	output:
+		"Maker_Files/Chr{Chrs}/MAKER_Filtered.scaffold_{Chrs}.all.AED_{AED_filter}.gff3",
+	params:
+		project=PROJECT,
+		AED_filter=AED_FILTER,
+	shell:
+		"""
+		cd Maker_Files
+		cp quality_filter.pl Chr{wildcards.Chrs}/scaffold_{wildcards.Chrs}.maker.output
 		
+		cd Chr{wildcards.Chrs}/scaffold_{wildcards.Chrs}.maker.output
+		fasta_merge -d scaffold_{wildcards.Chrs}_master_datastore_index.log
+		gff3_merge -d scaffold_{wildcards.Chrs}_master_datastore_index.log
+		maker_map_ids --prefix {params.project}_Chr{wildcards.Chrs} --justify 8 scaffold_{wildcards.Chrs}.all.gff > map
+		map_gff_ids map scaffold_{wildcards.Chrs}.all.gff
+		#map_fasta_ids map scaffold_{wildcards.Chrs}.all.maker.proteins.fasta
+		#map_fasta_ids map scaffold_{wildcards.Chrs}.all.maker.transcripts.fasta
+		#####AED filter#####
+		
+		perl quality_filter.pl -a {wildcards.AED_filter} scaffold_{wildcards.Chrs}.all.gff > scaffold_{wildcards.Chrs}.all.AED_{wildcards.AED_filter}.gff 
+
+		cd ..
+		sed -n 1p scaffold_{wildcards.Chrs}.maker.output/scaffold_{wildcards.Chrs}.all.AED_{wildcards.AED_filter}.gff  > MAKER_Filtered.scaffold_{wildcards.Chrs}.all.AED_{wildcards.AED_filter}.gff3
+		awk '$2 == "maker"' scaffold_{wildcards.Chrs}.maker.output/scaffold_{wildcards.Chrs}.all.AED_{wildcards.AED_filter}.gff >> MAKER_Filtered.scaffold_{wildcards.Chrs}.all.AED_{wildcards.AED_filter}.gff3
+		cd ../../.
+		"""
+
+#------------------------------------------------------------------------------------
+# ORF_analysis: Uses EDTA maked fasta file and ORF analysis to determine viable genes
+#------------------------------------------------------------------------------------
+
+rule ORF_analysis:
+	input:
+		GFF3_File=rules.POST_MAKER.output,
+		Ref_File=rules.Chr_splitting.output,
+		Masked_FASTA_File=rules.Masked_FASTA.output,
+	output:
+		"Post_Maker_Files/MAKER_ORF_Filtered_{Project}.scaffold_{Chrs}.AED_{AED_filter}.gff3",
+	params:
+		project=PROJECT,
+		AED_filter=AED_FILTER,
+	shell:
+		"""
+		BASEDIR=$PWD 
+		cp -v Post_Maker_ORF_Analysis_Terminal.R Post_Maker_Files
+		cd Post_Maker_Files 
+
+		ml r/4.1.0
+		R --vanilla < Post_Maker_ORF_Analysis_Terminal.R --args -g $BASEDIR/Maker_Files/Chr{wildcards.Chrs}/MAKER_Filtered.scaffold_{wildcards.Chrs}.all.AED_{wildcards.AED_filter}.gff3 -a $BASEDIR/Ref/scaffold_{wildcards.Chrs}.fasta -m $BASEDIR/EDTA_Files/scaffold_{wildcards.Chrs}.masked.fasta -o {params.project}.scaffold_{wildcards.Chrs}.AED_{wildcards.AED_filter}
+		ml unload r/4.1.0
+		cd ..
+		"""
+
+		
+#	/home/jmlazaro/github/gff3sort/gff3sort.pl FINAL_PK_hap2.gff3 > ordere.gff3
+#perl /home/jmlazaro/github/COGNATE/COGNATE_v1.0/COGNATE_v1.0.pl --gff /home/jmlazaro/scratch/Sunflower5/COGNATE/HAN412_Eugene_curated_v1_1.gff3 --fasta /home/jmlazaro/scratch/Sunflower5/COGNATE/Ha412HOv2.0-20181130.fasta --name HAN412 	

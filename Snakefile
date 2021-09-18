@@ -27,7 +27,10 @@ rule FINAL_GFF3:
 		expand("Maker_Files/Chr{Chrs}/scaffold_{Chrs}.maker.output/scaffold_{Chrs}_master_datastore_index.log",Chrs = CHRS),
 		expand("Maker_Files/Chr{Chrs}/MAKER_Filtered.scaffold_{Chrs}.all.AED_{AED_filter}.gff3",Chrs = CHRS,AED_filter=AED_FILTER),
 		expand("Post_Maker_Files/MAKER_ORF_Filtered_{Project}.scaffold_{Chrs}.AED_{AED_filter}.gff3",Project=PROJECT,Chrs = CHRS,AED_filter=AED_FILTER),
-
+		expand("FINAL_ANNOTATION/FINAL_{Project}.AED_{AED_filter}.sorted.gff3",Project=PROJECT,AED_filter=AED_FILTER),
+		expand("COGNATE/COGNATE_{Project}.AED_{AED_filter}/COGNATE_{Project}.AED_{AED_filter}_00-analyzed_transcripts.fa",Project=PROJECT,AED_filter=AED_FILTER),
+		expand("COGNATE/COGNATE_{Project}.AED_{AED_filter}/COGNATE_{Project}.AED_{AED_filter}_01-summary.tsv",Project=PROJECT,AED_filter=AED_FILTER),
+		
 #--------------------------------------------------------------------------------
 # Init: Initializing files and folder
 #--------------------------------------------------------------------------------
@@ -52,6 +55,7 @@ rule Init:
 		unzip -o Maker_Files.zip
 		mkdir Post_Maker_Files
 		mkdir FINAL_ANNOTATION
+		mkdir COGNATE
 
 		cp  {input.reference} {output}
 
@@ -345,6 +349,55 @@ rule ORF_analysis:
 		cd ..
 		"""
 
+#------------------------------------------------------------------------------------
+# Chr_merge: Fuse all gff3 individual chromosomes into complete assembly again
+#------------------------------------------------------------------------------------
+
+rule Chr_merge:
+	input:
+		expand("Post_Maker_Files/MAKER_ORF_Filtered_{Project}.scaffold_{Chrs}.AED_{AED_filter}.gff3",Project=PROJECT,Chrs = CHRS,AED_filter=AED_FILTER),
+	output:
+		"FINAL_ANNOTATION/FINAL_{Project}.AED_{AED_filter}.sorted.gff3",
+	params:
+		project=PROJECT,
+		Chrs=CHRS,
+	shell:
+		"""
+		cat Post_Maker_Files/MAKER_ORF_Filtered_{params.project}.scaffold_1.AED_{wildcards.AED_filter}.gff3 > FINAL_ANNOTATION/FINAL_{params.project}.AED_{wildcards.AED_filter}.gff3
 		
-#	/home/jmlazaro/github/gff3sort/gff3sort.pl FINAL_PK_hap2.gff3 > ordere.gff3
+		for i in {{2..11}}
+			do
+			tail -n +4 Post_Maker_Files/MAKER_ORF_Filtered_{params.project}.scaffold_$i.AED_{wildcards.AED_filter}.gff3 >> FINAL_ANNOTATION/FINAL_{params.project}.AED_{wildcards.AED_filter}.gff3
+			done
+		
+		/home/jmlazaro/github/gff3sort/gff3sort.pl --chr_order original FINAL_ANNOTATION/FINAL_{params.project}.AED_{wildcards.AED_filter}.gff3 > FINAL_ANNOTATION/FINAL_{params.project}.AED_{wildcards.AED_filter}.sorted.gff3
+		"""
+#------------------------------------------------------------------------------------
+# COGNATE: Generate Protein Fasta file and Analysis of gff3
+#------------------------------------------------------------------------------------
+
+rule COGNATE:
+	input:
+		GFF_file=rules.Chr_merge.output,
+		Ref_file=rules.Init.output
+	output:
+		"COGNATE/COGNATE_{Project}.AED_{AED_filter}/COGNATE_{Project}.AED_{AED_filter}_00-analyzed_transcripts.fa",
+		"COGNATE/COGNATE_{Project}.AED_{AED_filter}/COGNATE_{Project}.AED_{AED_filter}_01-summary.tsv",
+	params:
+		project=PROJECT,
+	shell:
+		"""
+		BASEDIR=$PWD
+		cp FINAL_ANNOTATION/FINAL_{params.project}.AED_{wildcards.AED_filter}.sorted.gff3 COGNATE
+		
+		ml perl
+		cd COGNATE
+		WORKDIR=$PWD
+		perl /home/jmlazaro/github/COGNATE/COGNATE_v1.0/COGNATE_v1.0.pl --gff $BASEDIR/COGNATE/FINAL_{params.project}.AED_{wildcards.AED_filter}.sorted.gff3 --fasta $BASEDIR/{input.Ref_file} --name {params.project}.AED_{wildcards.AED_filter} --workingdir $WORKDIR --overwrite
+		ml unload perl
+		"""
+
+
+		
 #perl /home/jmlazaro/github/COGNATE/COGNATE_v1.0/COGNATE_v1.0.pl --gff /home/jmlazaro/scratch/Sunflower5/COGNATE/HAN412_Eugene_curated_v1_1.gff3 --fasta /home/jmlazaro/scratch/Sunflower5/COGNATE/Ha412HOv2.0-20181130.fasta --name HAN412 	
+#(BUSCO) [jose@mrfox XRQv2_BUSCO]$ busco -m genome -i XRQv2.genes.fa -o V2_busco --auto-lineage

@@ -4,8 +4,8 @@ __default__:
     time: 0-0:45:00 # time limit for each job
     nodes: 1
     ntask: 1
-    cpus: 32
-    mem: 190000M
+    cpus: 4
+    mem: 120G
     output: default-%j.out #stdoutput.
     error: default-%j.err #stdoutput error
     
@@ -14,30 +14,37 @@ Init:
     output: EDTA_individual-%j.out #stdoutput. 
     error: EDTA_individual-%j.err #stdoutput error
 
-Chr_splittingChr_splitting:
+Chr_splitting:
     time: 0-0:30:00 # time limit for each job
     output: EDTA_individual-%j.out #stdoutput. 
-    error: EDTA_individual-%j.err #stdoutput error    
+    error: EDTA_individual-%j.err #stdoutput error
 
 EDTA_individual:
-    time: 0-24:00:00 # time limit for each job
+    time: 0-12:00:00 # time limit for each job
     output: EDTA_individual-%j.out #stdoutput. 
     error: EDTA_individual-%j.err #stdoutput error
+    cpus: 32
+    mem: 190G
 
 Masked_FASTA:
     time: 0-0:30:00 # time limit for each job
     output: Masked_FASTA-%j.out #stdoutput. 
     error: Masked_FASTA-%j.err #stdoutput error
+    cpus: 1
     
 MINIMAP2:
     time: 0-12:00:00 # time limit for each job
     output: MINIMAP2-%j.out #stdoutput. 
     error: MINIMAP2-%j.err #stdoutput error
+    cpus: 32
+    mem: 190G
  
 Nanopore_Raw_to_Chr:
     time: 0-12:00:00 # time limit for each job
     output: Nanopore_Raw_to_Chr-%j.out #stdoutput. 
     error: Nanopore_Raw_to_Chr-%j.err #stdoutput error
+    cpus: 16
+    mem: 190G
     
 Minor_Scaffolds_correction:
     time: 0-12:00:00 # time limit for each job
@@ -59,7 +66,17 @@ POST_MAKER:
     error: POST_MAKER-%j.err #stdoutput error
 
 ORF_analysis:
-    time: 0-12:00:00 # time limit for each job
+    time: 0-6:00:00 # time limit for each job
     output: ORF_analysis-%j.out #stdoutput. 
     error: ORF_analysis-%j.err #stdoutput error
+
+Chr_merge:
+    time: 0-0:30:00 # time limit for each job
+    output: Chr_merge-%j.out #stdoutput. 
+    error: Chr_merge-%j.err #stdoutput error
+    cpus: 1 
     
+COGNATE:
+    time: 0-11:50:00 # time limit for each job
+    output: COGNATE-%j.out #stdoutput. 
+    error: COGNATE-%j.err #stdoutput error

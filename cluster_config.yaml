@@ -65,6 +65,11 @@ POST_MAKER:
     output: POST_MAKER-%j.out #stdoutput. 
     error: POST_MAKER-%j.err #stdoutput error
 
+AED_FILTER:
+    time: 0-0:30:00 # time limit for each job
+    output: AED_FILTER-%j.out #stdoutput. 
+    error: AED_FILTER-%j.err #stdoutput error
+    
 ORF_analysis:
     time: 0-6:00:00 # time limit for each job
     output: ORF_analysis-%j.out #stdoutput. 
@@ -77,6 +82,7 @@ Chr_merge:
     cpus: 1 
     
 COGNATE:
-    time: 0-11:50:00 # time limit for each job
+    time: 0-24:00:00 # time limit for each job
     output: COGNATE-%j.out #stdoutput. 
     error: COGNATE-%j.err #stdoutput error
+    cpus: 16

@@ -25,6 +25,7 @@ rule FINAL_GFF3:
 		expand("Sorted_Chromosomes/Nanopore.chr{Chrs}.fasta",Chrs = CHRS),
 #		"Sorted_Chromosomes/Minor_Scaffolds.fasta",
 		expand("Maker_Files/Chr{Chrs}/scaffold_{Chrs}.maker.output/scaffold_{Chrs}_master_datastore_index.log",Chrs = CHRS),
+		expand("Maker_Files/Chr{Chrs}/scaffold_{Chrs}.maker.output/scaffold_{Chrs}.all.gff",Chrs = CHRS),
 		expand("Maker_Files/Chr{Chrs}/MAKER_Filtered.scaffold_{Chrs}.all.AED_{AED_filter}.gff3",Chrs = CHRS,AED_filter=AED_FILTER),
 		expand("Post_Maker_Files/MAKER_ORF_Filtered_{Project}.scaffold_{Chrs}.AED_{AED_filter}.gff3",Project=PROJECT,Chrs = CHRS,AED_filter=AED_FILTER),
 		expand("FINAL_ANNOTATION/FINAL_{Project}.AED_{AED_filter}.sorted.gff3",Project=PROJECT,AED_filter=AED_FILTER),
@@ -290,14 +291,14 @@ rule MAKER3:
 		ml openmpi/4.0.3 
 		"""
 #--------------------------------------------------------------------------------
-# POST_MAKER: Perform Maker Analysis, using 3 differente AED filter values
+# POST_MAKER: Create the consensus of gff and correct map name
 #--------------------------------------------------------------------------------
 
 rule POST_MAKER:
 	input:
 		Maker_File=rules.MAKER3.output,
 	output:
-		"Maker_Files/Chr{Chrs}/MAKER_Filtered.scaffold_{Chrs}.all.AED_{AED_filter}.gff3",
+		"Maker_Files/Chr{Chrs}/scaffold_{Chrs}.maker.output/scaffold_{Chrs}.all.gff",
 	params:
 		project=PROJECT,
 		AED_filter=AED_FILTER,
@@ -313,6 +314,25 @@ rule POST_MAKER:
 		map_gff_ids map scaffold_{wildcards.Chrs}.all.gff
 		#map_fasta_ids map scaffold_{wildcards.Chrs}.all.maker.proteins.fasta
 		#map_fasta_ids map scaffold_{wildcards.Chrs}.all.maker.transcripts.fasta
+		cd ../../..
+		"""
+#--------------------------------------------------------------------------------
+# AED_FILTER: Perform Maker Analysis, using 3 differente AED filter values
+#--------------------------------------------------------------------------------
+
+rule AED_FILTER:
+	input:
+		Maker_File=rules.POST_MAKER.output,
+	output:
+		"Maker_Files/Chr{Chrs}/MAKER_Filtered.scaffold_{Chrs}.all.AED_{AED_filter}.gff3",
+	params:
+		project=PROJECT,
+		AED_filter=AED_FILTER,
+	shell:
+		"""
+		cd Maker_Files
+		cd Chr{wildcards.Chrs}/scaffold_{wildcards.Chrs}.maker.output
+
 		#####AED filter#####
 		
 		perl quality_filter.pl -a {wildcards.AED_filter} scaffold_{wildcards.Chrs}.all.gff > scaffold_{wildcards.Chrs}.all.AED_{wildcards.AED_filter}.gff 
@@ -329,7 +349,7 @@ rule POST_MAKER:
 
 rule ORF_analysis:
 	input:
-		GFF3_File=rules.POST_MAKER.output,
+		GFF3_File=rules.AED_FILTER.output,
 		Ref_File=rules.Chr_splitting.output,
 		Masked_FASTA_File=rules.Masked_FASTA.output,
 	output:
@@ -381,8 +401,8 @@ rule COGNATE:
 		GFF_file=rules.Chr_merge.output,
 		Ref_file=rules.Init.output
 	output:
-		"COGNATE/COGNATE_{Project}.AED_{AED_filter}/COGNATE_{Project}.AED_{AED_filter}_00-analyzed_transcripts.fa",
-		"COGNATE/COGNATE_{Project}.AED_{AED_filter}/COGNATE_{Project}.AED_{AED_filter}_01-summary.tsv",
+		FASTA="COGNATE/COGNATE_{Project}.AED_{AED_filter}/COGNATE_{Project}.AED_{AED_filter}_00-analyzed_transcripts.fa",
+		TSV="COGNATE/COGNATE_{Project}.AED_{AED_filter}/COGNATE_{Project}.AED_{AED_filter}_01-summary.tsv",
 	params:
 		project=PROJECT,
 	shell:
@@ -394,9 +414,35 @@ rule COGNATE:
 		cd COGNATE
 		WORKDIR=$PWD
 		perl /home/jmlazaro/github/COGNATE/COGNATE_v1.0/COGNATE_v1.0.pl --gff $BASEDIR/COGNATE/FINAL_{params.project}.AED_{wildcards.AED_filter}.sorted.gff3 --fasta $BASEDIR/{input.Ref_file} --name {params.project}.AED_{wildcards.AED_filter} --workingdir $WORKDIR --overwrite
+		
+		cat COGNATE COMPLETED CORRECTLY ....
 		ml unload perl
 		"""
 
+#------------------------------------------------------------------------------------
+# BUSCO: Evaluate the Cognate results into BUSCO protein mode
+#------------------------------------------------------------------------------------
+
+#rule BUSCO:
+#	input:
+#		Protein_fasta=rules.COGNATE.output.FASTA,
+#	output:
+#		"COGNATE/COGNATE_{Project}.AED_{AED_filter}/COGNATE_{Project}.AED_{AED_filter}_00-analyzed_transcripts.fa",
+#		"COGNATE/COGNATE_{Project}.AED_{AED_filter}/COGNATE_{Project}.AED_{AED_filter}_01-summary.tsv",
+#	params:
+#		project=PROJECT,
+#	shell:
+#		"""
+#		BASEDIR=$PWD
+#
+#		eval "$(conda shell.bash hook)"
+#		conda activate BUSCO
+#		
+#		cp -r ${BIN}/busco_downloads/ .
+#		
+#		busco -f -c $CPU -m genome -i $ASSEMBLY -o $(basename ${ASSEMBLY%%.fa*}) -l eudicots_odb10 --offline
+#		
+#		"""
 
 		
 #perl /home/jmlazaro/github/COGNATE/COGNATE_v1.0/COGNATE_v1.0.pl --gff /home/jmlazaro/scratch/Sunflower5/COGNATE/HAN412_Eugene_curated_v1_1.gff3 --fasta /home/jmlazaro/scratch/Sunflower5/COGNATE/Ha412HOv2.0-20181130.fasta --name HAN412 	

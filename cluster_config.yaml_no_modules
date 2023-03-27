@@ -1,0 +1,103 @@
+# cluster_config.yaml - cluster configuration
+__default__:
+    account: rpp-rieseber
+    time: 0-0:45:00 # time limit for each job
+    nodes: 1
+    ntask: 1
+    cpus: 4
+    mem: 120G
+    output: default-%j.out #stdoutput.
+    error: default-%j.err #stdoutput error
+    
+Init:
+    time: 0-0:30:00 # time limit for each job
+    output: EDTA_individual-%j.out #stdoutput. 
+    error: EDTA_individual-%j.err #stdoutput error
+
+Chr_splitting:
+    time: 0-0:30:00 # time limit for each job
+    output: EDTA_individual-%j.out #stdoutput. 
+    error: EDTA_individual-%j.err #stdoutput error
+
+EDTA_individual:
+    time: 0-36:00:00 # time limit for each job
+    output: EDTA_individual-%j.out #stdoutput. 
+    error: EDTA_individual-%j.err #stdoutput error
+    cpus: 64
+    mem: 290G
+
+Masked_FASTA:
+    time: 0-0:30:00 # time limit for each job
+    output: Masked_FASTA-%j.out #stdoutput. 
+    error: Masked_FASTA-%j.err #stdoutput error
+    cpus: 1
+    
+MINIMAP2:
+    time: 0-12:00:00 # time limit for each job
+    output: MINIMAP2-%j.out #stdoutput. 
+    error: MINIMAP2-%j.err #stdoutput error
+    cpus: 64
+    mem: 400G
+ 
+Nanopore_Raw_to_Chr:
+    time: 0-24:00:00 # time limit for each job
+    output: Nanopore_Raw_to_Chr-%j.out #stdoutput. 
+    error: Nanopore_Raw_to_Chr-%j.err #stdoutput error
+    cpus: 32
+    mem: 290G
+    
+Minor_Scaffolds_correction:
+    time: 0-12:00:00 # time limit for each job
+    output: Nanopore_Raw_to_Chr-%j.out #stdoutput. 
+    error: Nanopore_Raw_to_Chr-%j.err #stdoutput error
+    
+MAKER3:
+    time: 18-16:00:00 # time limit for each job
+    cpus: 16
+    mem: 190G
+    output: MAKER3-%j.out #stdoutput. 
+    error: MAKER3-%j.err #stdoutput error
+
+POST_MAKER:
+    time: 0-0:30:00 # time limit for each job
+    output: POST_MAKER-%j.out #stdoutput. 
+    error: POST_MAKER-%j.err #stdoutput error
+
+AED_FILTER:
+    time: 0-0:30:00 # time limit for each job
+    output: AED_FILTER-%j.out #stdoutput. 
+    error: AED_FILTER-%j.err #stdoutput error
+    
+ORF_analysis:
+    time: 0-18:00:00 # time limit for each job
+    cpus: 8
+    mem: 40G
+    output: ORF_analysis-%j.out #stdoutput. 
+    error: ORF_analysis-%j.err #stdoutput error
+
+Chr_merge:
+    time: 0-0:30:00 # time limit for each job
+    output: Chr_merge-%j.out #stdoutput. 
+    error: Chr_merge-%j.err #stdoutput error
+    cpus: 1 
+    
+Summary_statistics:
+    time: 0-24:00:00 # time limit for each job
+    output: COGNATE-%j.out #stdoutput. 
+    error: COGNATE-%j.err #stdoutput error
+    cpus: 32
+    mem: 200G
+
+BUSCO:
+    time: 0-2:45:00 # time limit for each job
+    output: BUSCO-%j.out #stdoutput. 
+    error: BUSCO-%j.err #stdoutput error
+    cpus: 32
+    mem: 250G 
+
+INTERPRO:
+    time: 0-24:45:00 # time limit for each job
+    output: INTERPRO-%j.out #stdoutput.
+    error: INTERPRO-%j.err #stdoutput error
+    cpus: 48
+    mem: 250G
